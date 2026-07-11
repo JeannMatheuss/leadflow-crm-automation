@@ -1,12 +1,15 @@
 package br.com.AutomacaoDeLeads.scraper.controller;
 
 import br.com.AutomacaoDeLeads.scraper.model.Lead;
+import br.com.AutomacaoDeLeads.scraper.model.dto.LeadStatsDTO;
 import br.com.AutomacaoDeLeads.scraper.repository.LeadRepository;
 
 import br.com.AutomacaoDeLeads.scraper.service.ScraperService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/leads") // Mudamos o nome para algo mais profissional
@@ -38,5 +41,20 @@ public class ScraperController {
     @DeleteMapping("/{id}")
     public void deleteLead(@PathVariable Long id) {
         leadRepository.deleteById(id);
+    }
+
+    @GetMapping("/stats")
+    public LeadStatsDTO getStats() {
+        long total = leadRepository.count();
+        long today = leadRepository.countTodayLeads();
+
+        List<Object[]> categoryData = leadRepository.countLeadsByCategory();
+        Map<String, Long> distribution = categoryData.stream()
+                .collect(Collectors.toMap(
+                        obj -> (String) obj[0],
+                        obj -> (long) obj[1]
+                ));
+
+        return new LeadStatsDTO(total, today, distribution);
     }
 }
