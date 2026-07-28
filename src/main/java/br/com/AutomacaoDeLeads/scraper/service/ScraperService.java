@@ -3,6 +3,7 @@ package br.com.AutomacaoDeLeads.scraper.service;
 import br.com.AutomacaoDeLeads.scraper.repository.LeadRepository;
 import com.microsoft.playwright.*;
 import br.com.AutomacaoDeLeads.scraper.model.Lead;
+import com.microsoft.playwright.options.WaitUntilState;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import java.util.regex.Matcher;
@@ -80,29 +81,49 @@ public class ScraperService {
     }
 
     private void enrichLeadData(Page page, Lead lead) {
-        try {
-            Page webPage = page.context().newPage();
-            webPage.navigate(lead.getWebsite(), new Page.NavigateOptions().setTimeout(10000));
+        // Criamos um contexto com um User-Agent de navegador real para evitar bloqueios
+        try (BrowserContext context = page.context().browser().newContext(new Browser.NewContextOptions()
+                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
+                .setIgnoreHTTPSErrors(true))) { // Ignora erros de certificado SSL
 
-            // Instagram
-            Locator insta = webPage.locator("a[href*='instagram.com']").first();
-            if (insta.count() > 0) lead.setInstagram(insta.getAttribute("href"));
+            Page webPage = context.newPage();
+            try {
+                // Aumentamos o timeout para 15 segundos e esperamos o DOM carregar
+                webPage.navigate(lead.getWebsite(), new Page.NavigateOptions()
+                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                        .setTimeout(15000));
 
-            // Facebook
-            Locator face = webPage.locator("a[href*='facebook.com']").first();
-            if (face.count() > 0) lead.setFacebook(face.getAttribute("href"));
+                // Espera um pouquinho para scripts carregarem
+                webPage.waitForTimeout(2000);
 
-            // Email via Regex
-            String content = webPage.content();
-            Pattern emailPattern = Pattern.compile("[a-zA-Z0-9.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z0-9.-]+");
-            Matcher matcher = emailPattern.matcher(content);
-            if (matcher.find()) {
-                lead.setEmail(matcher.group());
+                // EXTRAÇÃO DE INSTAGRAM
+                Locator insta = webPage.locator("a[href*='instagram.com']").first();
+                if (insta.count() > 0) {
+                    lead.setInstagram(insta.getAttribute("href"));
+                }
+
+                // EXTRAÇÃO DE FACEBOOK
+                Locator face = webPage.locator("a[href*='facebook.com']").first();
+                if (face.count() > 0) {
+                    lead.setFacebook(face.getAttribute("href"));
+                }
+
+                // EXTRAÇÃO DE EMAIL (Melhorado com regex mais forte)
+                String content = webPage.content();
+                Pattern emailPattern = Pattern.compile("([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)");
+                Matcher matcher = emailPattern.matcher(content);
+                if (matcher.find()) {
+                    lead.setEmail(matcher.group(1));
+                }
+
+            } catch (Exception e) {
+                // Se der timeout, apenas logamos, mas não travamos o robô
+                System.err.println("Timeout ou Bloqueio ao acessar: " + lead.getWebsite());
+            } finally {
+                webPage.close();
             }
-
-            webPage.close();
         } catch (Exception e) {
-            System.err.println("Erro no enriquecimento: " + lead.getWebsite());
+            System.err.println("Erro ao criar contexto de navegação: " + e.getMessage());
         }
     }
 }
