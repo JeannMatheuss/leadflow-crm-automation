@@ -16,6 +16,10 @@ public class Lead {
     private String name;
     private String phone;
     private String website;
+    private String instagram;
+    private String facebook;
+    private String linkedin;
+    private String email;
 
     @Column(length = 500)
     private String address;
