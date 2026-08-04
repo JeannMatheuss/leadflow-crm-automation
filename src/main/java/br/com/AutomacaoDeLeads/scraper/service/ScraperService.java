@@ -38,7 +38,6 @@ public class ScraperService {
                     cards.nth(i).click();
                     page.waitForTimeout(2000);
 
-                    // Extração básica
                     String name = page.locator("h1.DUwDvf").innerText();
                     String phone = null;
                     Locator phoneLoc = page.locator("button[data-item-id^='phone:tel']");
@@ -46,27 +45,35 @@ public class ScraperService {
                         phone = phoneLoc.getAttribute("data-item-id").replace("phone:tel:", "");
                     }
 
-                    // VERIFICAÇÃO DE DUPLICADO
+                    // SÓ ENTRA AQUI SE O LEAD FOR NOVO
                     if (!leadRepository.existsByNameAndPhone(name, phone)) {
                         Lead lead = new Lead();
                         lead.setName(name);
                         lead.setPhone(phone);
                         lead.setCategory(query);
 
-                        // Website e Endereço
+                        // 1. EXTRAÇÃO DE WEBSITE
                         Locator webLoc = page.locator("a[data-item-id='authority']");
                         if (webLoc.isVisible()) lead.setWebsite(webLoc.getAttribute("href"));
 
+                        // 2. EXTRAÇÃO E PARSE DE ENDEREÇO
                         Locator addressLoc = page.locator("button[data-item-id='address']");
-                        if (addressLoc.isVisible()) lead.setAddress(addressLoc.innerText());
+                        if (addressLoc.isVisible()) {
+                            String fullAddress = addressLoc.innerText();
+                            lead.setAddress(fullAddress);
+                            // CHAMA O PARSE AQUI DENTRO (enquanto o objeto 'lead' existe)
+                            parseAddress(fullAddress, lead);
+                        }
 
-                        // --- ENRIQUECIMENTO ---
+                        // 3. ENRIQUECIMENTO (Redes Sociais/Email)
                         if (lead.getWebsite() != null) {
                             enrichLeadData(page, lead);
                         }
 
+                        // 4. SALVAMENTO FINAL (com cidade e estado preenchidos)
                         leadRepository.save(lead);
-                        System.out.println("Salvo e Enriquecido: " + name);
+                        System.out.println("Salvo completo: " + name + " [" + lead.getCity() + "/" + lead.getState() + "]");
+
                     } else {
                         System.out.println("Já existe: " + name);
                     }
