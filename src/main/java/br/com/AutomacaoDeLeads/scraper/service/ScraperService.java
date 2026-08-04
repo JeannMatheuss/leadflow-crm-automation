@@ -126,4 +126,33 @@ public class ScraperService {
             System.err.println("Erro ao criar contexto de navegação: " + e.getMessage());
         }
     }
+
+    private void parseAddress(String fullAddress, Lead lead) {
+        if (fullAddress == null || fullAddress.isEmpty()) return;
+
+        try {
+            //Ex: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP, 01310-100"
+
+            // 1. Dividir por vírgulas e traços
+            String[] parts = fullAddress.split(",");
+
+            for (String part : parts) {
+                if (part.contains("-")) {
+                    String[] cityState = part.split("-");
+                    if (cityState.length >= 2) {
+                        String possibleState = cityState[cityState.length - 1].trim();
+
+                        // Verifica se é uma sigla de estado (2 letras)
+                        if (possibleState.length() == 2 && possibleState.matches("[A-Z]{2}")) {
+                            lead.setState(possibleState);
+                            lead.setCity(cityState[cityState.length - 2].trim());
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao processar endereço: " + fullAddress);
+        }
+    }
 }
