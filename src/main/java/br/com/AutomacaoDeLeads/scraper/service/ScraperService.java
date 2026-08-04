@@ -31,7 +31,7 @@ public class ScraperService {
             }
 
             Locator cards = page.locator("div[role='article']");
-            int total = Math.min(cards.count(), 15);
+            int total = Math.min(cards.count(), 5);
 
             for (int i = 0; i < total; i++) {
                 try {
