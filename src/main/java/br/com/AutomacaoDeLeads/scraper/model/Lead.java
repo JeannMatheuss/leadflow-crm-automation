@@ -21,6 +21,9 @@ public class Lead {
     private String linkedin;
     private String email;
 
+    private String city;
+    private String state;
+
     @Column(length = 500)
     private String address;
 
